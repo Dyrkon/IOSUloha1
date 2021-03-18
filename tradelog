@@ -1,0 +1,30 @@
+#!/bin/sh
+
+export POSIXLY_CORRECT=yes
+export LC_NUMERIC=en_US.UTF-8
+
+printf_help() {
+  echo "Usage: tradelog [-h | --help]"
+  echo "       tradelog [FILTR] [PŘÍKAZ] [LOG [LOG2 [...]]"
+  printf "\n"
+  echo "  COMMANDS"
+  echo "list-tick:    Prints list of available tickers"
+  echo "profit:       Prints total profit of closed positions"
+  echo "pos:          Prints values of currently held positions sorted by the value in descending order"
+  echo "last-price:   Prints last known prices for every ticker"
+  echo "hist-ord:     Prints histogram of count of number of transactions according to ticker"
+  echo "graph-pos:    Prints graph of values held according to ticker"
+  print "\n"
+  echo "  FILTERS"
+  echo "-a DATETIME:  Filters out entries AFTER specified date (excluding entered date) in format [ YYYY-MM-DD HH:MM:SS ]"
+  echo "-b DATETIME:  Filters out entries BEFORE specified date (excluding entered date) in format [ YYYY-MM-DD HH:MM:SS ]"
+  echo "-t TICKER:    Filters out entries with MATCHING TICKER. If more TICKERS are specified they all will be filtered out"
+  echo "-w WIDTH:     Sets WIDTH for graph to be printed. The specified WIDTH must be the length of longest row. \n
+                        More than one WIDTH switches specified or the value of WIDTH being less than zero or float point \n
+                        number will result in error"
+  print "\n"
+  echo "  HELP"
+  echo "-h or --help: Prints short description of every command and switch"
+}
+
+printf_help
