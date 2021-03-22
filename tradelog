@@ -3,28 +3,146 @@
 export POSIXLY_CORRECT=yes
 export LC_NUMERIC=en_US.UTF-8
 
+COMMANDS=""
+LOG_FILES=""
+GZ_LOG_FILES="gunzip -c"
+TICKERS=""
+A_DATETIME=" "
+B_DATETIME="9999-99-99 99:99:99"
+SELL=""
+BUY=""
+
 printf_help() {
   echo "Usage: tradelog [-h | --help]"
   echo "       tradelog [FILTR] [PŘÍKAZ] [LOG [LOG2 [...]]"
   printf "\n"
-  echo "  COMMANDS"
+
+  echo "COMMANDS:"
   echo "list-tick:    Prints list of available tickers"
   echo "profit:       Prints total profit of closed positions"
   echo "pos:          Prints values of currently held positions sorted by the value in descending order"
   echo "last-price:   Prints last known prices for every ticker"
   echo "hist-ord:     Prints histogram of count of number of transactions according to ticker"
   echo "graph-pos:    Prints graph of values held according to ticker"
-  print "\n"
-  echo "  FILTERS"
+  printf "\n"
+
+  echo "FILTERS:"
   echo "-a DATETIME:  Filters out entries AFTER specified date (excluding entered date) in format [ YYYY-MM-DD HH:MM:SS ]"
   echo "-b DATETIME:  Filters out entries BEFORE specified date (excluding entered date) in format [ YYYY-MM-DD HH:MM:SS ]"
   echo "-t TICKER:    Filters out entries with MATCHING TICKER. If more TICKERS are specified they all will be filtered out"
   echo "-w WIDTH:     Sets WIDTH for graph to be printed. The specified WIDTH must be the length of longest row. \n
                         More than one WIDTH switches specified or the value of WIDTH being less than zero or float point \n
                         number will result in error"
-  print "\n"
+  printf "\n"
+
   echo "  HELP"
   echo "-h or --help: Prints short description of every command and switch"
 }
 
-printf_help
+list_tick() {
+  echo "$TICKERS" | tr -s ', ' '\n'
+}
+
+profit() {
+  #SPATNE |||| Jednotkova cena
+  SELL=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "sell" {sum += $4} END {print sum}')
+  BUY=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "buy" {sum += $4} END {print sum}')
+  OUTPUT=$(echo "$SELL - $BUY" | bc)
+  echo "$OUTPUT"
+}
+
+pos()
+{
+  #DODELAT |||| Zarovanvani viz zadani
+  for TICK in $TICKERS
+  do
+    SELL_TICK=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '$3 == "sell" && $2 == tick {sum += $6}  END {print sum}')
+    BUY_TICK=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '$3 == "buy" && $2 == tick {sum += $6}  END {print sum}')
+    HOLD=$(echo "$SELL_TICK - $BUY_TICK" | bc)
+    PRICE=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '{ if ($2 == tick) print $4 }'| tail -n1)
+    TOTAL=$(echo "$HOLD $PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.3f", tick, $1*$2}')
+    echo "$TOTAL"
+  done
+}
+
+last_price()
+{
+  #DODELAT |||| Zarovanvani viz zadani
+  for TICK in $TICKERS
+  do
+    LAST_PRICE=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '{ if ($2 == tick) print $4 }'| tail -n1)
+    PRINT=$(echo "$LAST_PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.3f", tick, $1}')
+    echo "$PRINT"
+  done
+}
+
+hist_ord()
+{
+  echo "TODO"
+}
+
+graph_pos()
+{
+  echo "TODO"
+}
+
+
+while [ "$#" -gt 0 ]; do
+  case $1 in
+  list-tick | pos | profit | last-price | hist-ord | graph-pos)
+    COMMANDS="$1 $COMMANDS"
+    shift
+    ;;
+  -h)
+    printf_help
+    exit 0
+    ;;
+  -w)
+    WIDTH="$2"
+    shift
+    shift
+    ;;
+  -a)
+    A_DATETIME="$2"
+    shift
+    shift
+    ;;
+  -b)
+    B_DATETIME="$2"
+    shift
+    shift
+    ;;
+  -t)
+    TICKERS="$2 $TICKERS"
+    shift
+    shift
+    ;;
+  *.gz)
+    GZ_LOG_FILES=" $1"
+    shift
+    ;;
+  *.log)
+    LOG_FILES="$1 "
+    shift
+    ;;
+  esac
+done
+
+TICKERS="$TICKERS"
+READ_INPUT="cat"
+READ_INPUT="cat $LOG_FILES"
+FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if (tickers ~ $2 && $1 < btime && $1 > atime) print }')
+
+# | sort -n -s -t ";" -k 4
+#SELL=$(echo "$FILTERED_INPUT" | awk -F ";" '{ if ($3 == "sell") print}')
+
+case "$COMMANDS" in
+  *last-price*)
+    last_price ;;
+  *list-tick*)
+    list_tick ;;
+  *profit*)
+    profit ;;
+  *pos*)
+    pos ;;
+  esac
