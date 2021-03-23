@@ -6,11 +6,18 @@ export LC_NUMERIC=en_US.UTF-8
 COMMANDS=""
 LOG_FILES=""
 GZ_LOG_FILES="gunzip -c"
+# DODELAT PRO GZ
+READ_INPUT="cat"
 TICKERS=""
 A_DATETIME=" "
 B_DATETIME="9999-99-99 99:99:99"
+WIDTH="0"
 SELL=""
 BUY=""
+
+# alias t1="/usr/bin/bash ./tradelog -t V -t GOOGL -t UNH -t PG -t FB -t AMZN -t WMT list-tick stock-2.log"
+# alias t2="/usr/bin/bash ./tradelog logfile.log stock-2.log"
+# alias t3="/usr/bin/bash ./tradelog stock-2.log"
 
 printf_help() {
   echo "Usage: tradelog [-h | --help]"
@@ -44,41 +51,85 @@ list_tick() {
 }
 
 profit() {
-  #SPATNE |||| Jednotkova cena
-  SELL=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "sell" {sum += $4} END {print sum}')
-  BUY=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "buy" {sum += $4} END {print sum}')
+  SELL=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "sell" { sum += $4 * $6 }  END {printf "%.2f", sum}')
+  BUY=$(echo "$FILTERED_INPUT" | awk -F ';' '$3 == "buy" { sum += $4 * $6 } END {printf "%.2f", sum}')
   OUTPUT=$(echo "$SELL - $BUY" | bc)
   echo "$OUTPUT"
 }
 
+  #DODELAT |||| Zarovanvani viz zadani
 pos()
 {
-  #DODELAT |||| Zarovanvani viz zadani
   for TICK in $TICKERS
   do
     SELL_TICK=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '$3 == "sell" && $2 == tick {sum += $6}  END {print sum}')
     BUY_TICK=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '$3 == "buy" && $2 == tick {sum += $6}  END {print sum}')
-    HOLD=$(echo "$SELL_TICK - $BUY_TICK" | bc)
+    HOLD=$(echo "$BUY_TICK - $SELL_TICK" | bc)
     PRICE=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '{ if ($2 == tick) print $4 }'| tail -n1)
-    TOTAL=$(echo "$HOLD $PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.3f", tick, $1*$2}')
+    TOTAL=$(echo "$HOLD $PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.2f", tick, $1*$2}')
     echo "$TOTAL"
   done
 }
 
+  #DODELAT |||| Zarovanvani viz zadani
 last_price()
 {
-  #DODELAT |||| Zarovanvani viz zadani
   for TICK in $TICKERS
   do
     LAST_PRICE=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '{ if ($2 == tick) print $4 }'| tail -n1)
-    PRINT=$(echo "$LAST_PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.3f", tick, $1}')
+    PRINT=$(echo "$LAST_PRICE" | awk -v tick="$TICK" '{ printf "%-11s : %.2f", tick, $1}')
     echo "$PRINT"
   done
 }
 
+  #DODELAT
 hist_ord()
 {
-  echo "TODO"
+  if [ $WIDTH -eq "0" ]
+  then
+
+    for TICK in $TICKERS
+    do
+      TRANSACTIONS=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '$2 == tick {sum += 1} END {print sum}')
+      HASTAGS=""
+      while [ 0 != "$TRANSACTIONS" ]
+      do
+        HASTAGS="$HASTAGS#"
+        TRANSACTIONS=$((TRANSACTIONS-1))
+      done
+      OUTPUT=$(echo "$TRANSACTIONS" | awk -F ";" -v tick="$TICK" -v tags="$HASTAGS" '{ printf "%-11s : %s", tick, tags }')
+      echo "$OUTPUT"
+    done
+
+  else
+
+    LONGEST=""
+    for TICK in $TICKERS
+    do
+      LENGTH=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '$2 == tick {sum += 1} END {print sum}')
+      LONGEST=$(echo "" | awk -v len="$LENGTH" -v longest="$LONGEST"  'longest < length { print length }' )
+    done
+
+    echo "longest - $LONGEST"
+
+    DEVIDER=$(echo ""| awk -v longest="$LONGEST" -v width="$WIDTH" '{ print longest/width }' )
+
+    echo "div - $DEVIDER"
+
+    for TICK in $TICKERS
+    do
+      TRANSACTIONS=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" -v div="$DEVIDER" '$2 == tick {sum += 1} END {print sum/div}'| tail -n1)
+      HASTAGS=""
+      while [ 0 != "$TRANSACTIONS" ]
+      do
+        HASTAGS="$HASTAGS#"
+        TRANSACTIONS=$((TRANSACTIONS-1))
+      done
+      OUTPUT=$(echo "$TRANSACTIONS" | awk -F ";" -v tick="$TICK" -v tags="$HASTAGS" '{ printf "%-11s : %s", tick, tags }')
+      echo "$OUTPUT"
+    done
+
+  fi
 }
 
 graph_pos()
@@ -122,21 +173,24 @@ while [ "$#" -gt 0 ]; do
     shift
     ;;
   *.log)
-    LOG_FILES="$1 "
+    LOG_FILES="$LOG_FILES $1"
     shift
     ;;
   esac
 done
 
-TICKERS="$TICKERS"
-READ_INPUT="cat"
 READ_INPUT="cat $LOG_FILES"
-FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if (tickers ~ $2 && $1 < btime && $1 > atime) print }')
 
-# | sort -n -s -t ";" -k 4
-#SELL=$(echo "$FILTERED_INPUT" | awk -F ";" '{ if ($3 == "sell") print}')
+if [ "$TICKERS" = "" ]; then
+    FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
+    TICKERS=$(echo "$FILTERED_INPUT" | sort -t ";" -k2,2 -u | awk -F ";" '{ print $2 }')
+  else
+    FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if (tickers ~ $2 && $1 < btime && $1 > atime) print }')
+  fi
 
 case "$COMMANDS" in
+  *hist-ord*)
+    hist_ord ;;
   *last-price*)
     last_price ;;
   *list-tick*)
