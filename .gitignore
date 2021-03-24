@@ -2,3 +2,4 @@
 *.po
 *.log
 test.sh
+*.gz
