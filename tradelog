@@ -61,7 +61,6 @@ profit() {
 
 pos()
 {
-  # LENGTH=$(echo "$FILTERED_INPUT" | sort -t ";" -k4,4 -k6,6 -n | awk -F ";" 'END { print length($4*$6) }')
   for TICK in $TICKERS
   do
     OUT=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '{
@@ -79,7 +78,13 @@ pos()
       PRINT=$(echo "$PRINT $OUT" | awk -F " " '{ printf "%s\n%s", $1, $2 }')
   done
   PRINT=$(echo "$PRINT" | sort -t ":" -k2,2 -nr)
-  LENGTH=$(echo "$PRINT" | awk -F ":" 'BEGIN{ first = $2 } END{ printf "%d", (length(first) > length($2) ? length(first) : length($2)) }')
+
+  LENGTH=$(echo "$PRINT" | awk -F ":" '{
+    if (length($2) > max)
+    {
+      max = length($2)
+    } }
+  END { printf "%d", max }')
   PRINT=$(echo "$PRINT" | awk -v lng="$LENGTH" -F ":" '{ printf "%-10s : %*.2f\n", $1, lng, $2 }')
   echo  "$PRINT"
 }
@@ -97,6 +102,7 @@ last_price()
   done
 }
 
+  # MOZNA PREDELAT ZAOKROUHLOVANI
 hist_ord()
 {
   if [ z"$WIDTH" = z"" ]
@@ -119,12 +125,12 @@ hist_ord()
       END { { printf "%d",longest } } ')
     done
 
-    DIVIDER=$(echo ""| awk -v longest="$LONGEST" -v width="$WIDTH" '{ printf int((longest/width)+0.5) }' )
+    DIVIDER=$(echo ""| awk -v longest="$LONGEST" -v width="$WIDTH" '{ printf "%d", longest/width }' )
     TAGS=$(echo "" | awk -v count="$LONGEST" 'BEGIN{for(i=0;i<count;i++) printf "#"}')
 
     for TICK in $TICKERS
     do
-      COUNT=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" -v div="$DIVIDER" '$2 == tick {sum += 1} END {print int(sum/div+0.5)}'| tail -n1)
+      COUNT=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" -v div="$DIVIDER" '$2 == tick {sum += 1} END {printf "%d", sum/div }'| tail -n1)
       OUTPUT=$(echo "" | awk -F ";" -v tick="$TICK" -v width="$COUNT" -v tags="$TAGS" '{ printf "%-10s : %.*s", tick, width, tags }')
       echo "$OUTPUT"
     done
@@ -133,7 +139,66 @@ hist_ord()
 
 graph_pos()
 {
-  echo "TODO"
+  if [ z"$WIDTH" = z"" ]
+  then
+    WIDTH="1000"
+  else
+    WIDTH="$WIDTH"
+  fi
+
+  for TICK in $TICKERS
+    do
+      OUT=$(echo "$FILTERED_INPUT" | awk -F ';' -v tick="$TICK" '{
+        if ($3 == "sell" && $2 == tick)
+        {
+          v_sell += $6
+          price=$4
+        }
+        else if ($3 == "buy" && $2 == tick)
+        {
+          v_buy += $6
+          price=$4
+        } }
+        END { printf "%s:%.2f\n", tick,(v_buy - v_sell)*price }')
+        PRINT=$(echo "$PRINT $OUT" | awk -F " " '{ printf "%s\n%s", $1, $2 }')
+    done
+
+    PRINT=$(echo "$PRINT" | sort -t ":" -k2,2 -nr)
+
+    DIV=$(echo "$PRINT" | awk -F ":" -v width="$WIDTH"  '
+    function abs(x)
+    {
+      return ((x < 0.0) ? -x : x)
+    }
+    {
+      if (abs($2) > max)
+      {
+        max = abs($2)
+      }
+    }
+    END { printf "%d", max }')
+
+    TAGS_PLUS=$(echo "" | awk -v count="$WIDTH" 'BEGIN{ for(i=0; i<count; i++) printf "#" }')
+    TAGS_MINUS=$(echo "" | awk -v count="$WIDTH" 'BEGIN{ for(i=0; i<count; i++) printf "!" }')
+
+    PRINT=$(echo "$PRINT" | sort -t ":" -k1,1)
+
+    PRINT=$(echo "$PRINT" | awk -v tagminus="$TAGS_MINUS" -v tagplus="$TAGS_PLUS" -v div="$DIV" -F ":" '
+    function abs(x)
+    {
+      return ((x < 0.0) ? -x : x)
+    }
+
+    {
+      s_width = $2/div
+
+      if (s_width >= 0)
+      { printf "%-10s : %.*s\n", $1, abs(s_width), tagplus }
+      else
+      { printf "%-10s : %.*s\n", $1, abs(s_width), tagminus }
+    }' )
+    echo "$PRINT"
+
 }
 
 while [ "$#" -gt 0 ]; do
@@ -200,6 +265,8 @@ if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [
   fi
 
 case "$COMMANDS" in
+  *graph-pos*)
+    graph_pos ;;
   *hist-ord*)
     hist_ord ;;
   *last-price*)
