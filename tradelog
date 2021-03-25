@@ -105,7 +105,12 @@ hist_ord() {
     for TICK in $TICKERS; do
       TRANSACTIONS=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" '$2 == tick {sum += 1} END {print sum}')
       HASHTAGS=$(echo "" | awk -v count="$TRANSACTIONS" 'BEGIN{for(i=0;i<count;i++) printf "#"}')
-      OUTPUT=$(echo "$TRANSACTIONS" | awk -v tick="$TICK" -v tags="$HASHTAGS" '{ printf "%-9s : %s", tick, tags }')
+      OUTPUT=$(echo "$TRANSACTIONS" | awk -v tick="$TICK" -v tags="$HASHTAGS" '{
+        if (tags == "")
+          { printf "%-9s :", tick }
+        else
+          { printf "%-9s : %s", tick, tags }
+       }')
       echo "$OUTPUT"
     done
 
@@ -123,7 +128,12 @@ hist_ord() {
 
     for TICK in $TICKERS; do
       COUNT=$(echo "$FILTERED_INPUT" | awk -F ";" -v tick="$TICK" -v div="$DIVIDER" '$2 == tick {sum += 1} END {printf "%d", sum/div }' | tail -n1)
-      OUTPUT=$(echo "" | awk -F ";" -v tick="$TICK" -v width="$COUNT" -v tags="$TAGS" '{ printf "%-9s : %.*s", tick, width, tags }')
+      OUTPUT=$(echo "" | awk -F ";" -v tick="$TICK" -v width="$COUNT" -v tags="$TAGS" '{
+       if (width == 0)
+          { printf "%-9s :", tick }
+        else
+          { printf "%-9s : %.*s", tick, width, tags }
+       }')
       echo "$OUTPUT"
     done
   fi
@@ -181,9 +191,9 @@ graph_pos() {
     {
       s_width = $2/div
 
-      if (s_width > 0)
+      if (s_width >= 1)
       { printf "%-9s : %.*s\n", $1, abs(s_width), tagplus }
-      else if (s_width < 0)
+      else if (s_width <= -1)
       { printf "%-9s : %.*s\n", $1, abs(s_width), tagminus }
       else
       { printf "%-9s :\n", $1 }
