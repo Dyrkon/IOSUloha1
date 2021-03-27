@@ -44,8 +44,6 @@ printf_help() {
   echo "-h or --help: Prints short description of every command and switch"
 }
 
-#DODELAT |||| Zarovanvani viz zadani
-
 list_tick() {
   echo "$TICKERS" | tr -s ', ' '\n'
 }
@@ -89,7 +87,11 @@ pos() {
 }
 
 last_price() {
-  LENGTH=$(echo "$FILTERED_INPUT" | sort -k4,4 -n | awk -F ";" 'END { print length($4)+1 }')
+  LENGTH=$(echo "$FILTERED_INPUT" | awk -F ";" 'BEGIN{max_lngth = 0}
+  {
+    if (max_lngth < length($4))
+    { max_lngth = length($4) } }
+    END { print max_lngth }')
   for TICK in $TICKERS; do
     OUT=$(echo "$FILTERED_INPUT" | awk -F ";" -v m_length="$LENGTH" -v tick="$TICK" '{
       if ($2 == tick)
@@ -99,7 +101,6 @@ last_price() {
   done
 }
 
-# MOZNA PREDELAT ZAOKROUHLOVANI
 hist_ord() {
   if [ z"$WIDTH" = z"" ]; then
     for TICK in $TICKERS; do
@@ -123,7 +124,7 @@ hist_ord() {
       END { { printf "%d",longest } } ')
     done
 
-    DIVIDER=$(echo "" | awk -v longest="$LONGEST" -v width="$WIDTH" '{ printf "%d", longest/width }')
+    DIVIDER=$(echo "" | awk -v longest="$LONGEST" -v width="$WIDTH" '{ printf "%f", longest/width }')
     TAGS=$(echo "" | awk -v count="$LONGEST" 'BEGIN{for(i=0;i<count;i++) printf "#"}')
 
     for TICK in $TICKERS; do
@@ -251,10 +252,19 @@ else
   READ_INPUT="cat $LOG_FILES"
 fi
 
+if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [ z"$GZ_LOG_FILES" = z"gunzip -c" ] && [ z"$A_DATETIME" = z" " ]; then
+  OUT=$(eval "$READ_INPUT" | awk '{ print }')
+  echo "$OUT"
+  exit
+fi
+
 if [ "$TICKERS" = "" ] && [ z"$READ_INPUT" != z"cat" ]; then
   FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
   TICKERS=$(echo "$FILTERED_INPUT" | sort -t ";" -k2,2 -u | awk -F ";" '{ print $2 }')
-elif [ z"$READ_INPUT" != z"cat" ]; then
+elif [ "$TICKERS" = "" ] && [ z"$READ_INPUT" = z"cat" ]; then
+  FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
+  TICKERS=$(echo "$FILTERED_INPUT" | sort -t ";" -k2,2 -u | awk -F ";" '{ print $2 }')
+else
   FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '
     { len=split(tickers,list," ") }
     {
@@ -265,12 +275,6 @@ elif [ z"$READ_INPUT" != z"cat" ]; then
       }
     }
   ')
-fi
-
-if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [ z"$GZ_LOG_FILES" = z"gunzip -c" ] && [ z"$A_DATETIME" = z" " ]; then
-  OUT=$(eval "$READ_INPUT" | awk '{ print }')
-  echo "$OUT"
-  exit
 fi
 
 case "$COMMANDS" in
