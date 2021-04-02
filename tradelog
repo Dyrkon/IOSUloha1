@@ -245,11 +245,17 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$LOG_FILES" ] && [ z"$GZ_LOG_FILES" = z"gunzip -c" ]; then
-  READ_INPUT="cat"
-elif [ z"$GZ_LOG_FILES" != z"gunzip -c" ]; then
-  READ_INPUT="$GZ_LOG_FILES"
+  READ_INPUT=$(cat)
+elif [ z"$GZ_LOG_FILES" != z"gunzip -c" ] && [ -z "$LOG_FILES" ]; then
+  READ_INPUT=$(eval "$GZ_LOG_FILES")
+elif [ z"$GZ_LOG_FILES" != z"gunzip -c" ] && [ z"$LOG_FILES" != z"" ]; then
+  GZ=$($GZ_LOG_FILES)
+  LOG_FILES=$(echo "$LOG_FILES" | cut -c 2-)
+  LG=$(cat "$LOG_FILES")
+  READ_INPUT="$LG$GZ"
 else
-  READ_INPUT="cat $LOG_FILES"
+  LOG_FILES=$(echo "$LOG_FILES" | cut -c 2-)
+  READ_INPUT=$(cat "$LOG_FILES")
 fi
 
 if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [ z"$GZ_LOG_FILES" = z"gunzip -c" ] && [ z"$A_DATETIME" = z" " ]; then
@@ -259,13 +265,13 @@ if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [
 fi
 
 if [ "$TICKERS" = "" ] && [ z"$READ_INPUT" != z"cat" ]; then
-  FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
+  FILTERED_INPUT=$(echo "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
   TICKERS=$(echo "$FILTERED_INPUT" | sort -t ";" -k2,2 -u | awk -F ";" '{ print $2 }')
 elif [ "$TICKERS" = "" ] && [ z"$READ_INPUT" = z"cat" ]; then
-  FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
+  FILTERED_INPUT=$(echo "$READ_INPUT" | awk -F ";" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '{ if ($1 < btime && $1 > atime) print }')
   TICKERS=$(echo "$FILTERED_INPUT" | sort -t ";" -k2,2 -u | awk -F ";" '{ print $2 }')
 else
-  FILTERED_INPUT=$(eval "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '
+  FILTERED_INPUT=$(echo "$READ_INPUT" | awk -F ";" -v tickers="$TICKERS" -v btime="$B_DATETIME" -v atime="$A_DATETIME" '
     { len=split(tickers,list," ") }
     {
       for (i = 1; i <= len; i++)
