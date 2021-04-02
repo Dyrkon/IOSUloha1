@@ -12,11 +12,6 @@ A_DATETIME=" "
 B_DATETIME="9999-99-99 99:99:99"
 WIDTH=""
 
-# test  git clone https://github.com/ondrej-mach/iotest.git
-# ./tradelog -t V -t GOOGL -t UNH -t PG -t FB -t AMZN -t WMT list-tick stock-2.log
-# ./tradelog logfile.log stock-2.log
-# ./tradelog stock-2.log
-
 printf_help() {
   echo "Usage: tradelog [-h | --help]"
   echo "       tradelog [FILTR] [PŘÍKAZ] [LOG [LOG2 [...]]"
