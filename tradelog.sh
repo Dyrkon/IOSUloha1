@@ -253,6 +253,8 @@ else
   READ_INPUT=$(cat "$LOG_FILES")
 fi
 
+READ_INPUT=$(echo "$READ_INPUT" | sort -t ";" -k1,1)
+
 if [ z"$LOG_FILES" = z"" ] && [ z"$COMMANDS" = z"" ] && [ z"$WIDTH" = z"" ] && [ z"$GZ_LOG_FILES" = z"gunzip -c" ] && [ z"$A_DATETIME" = z" " ]; then
   OUT=$(eval "$READ_INPUT" | awk '{ print }')
   echo "$OUT"
